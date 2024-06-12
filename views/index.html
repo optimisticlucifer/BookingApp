@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking EV Charger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        form {
+            width: 50%;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input,
+        select,
+        button {
+            padding: 10px;
+            margin: 10px;
+            width: 80%;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Booking EV Charger</h1>
+    <div id="app">
+        <form id="location-form">
+            <h2>Enter Your Location</h2>
+            <label for="latitude">Latitude:</label>
+            <input type="text" id="latitude" name="latitude" required>
+            <label for="longitude">Longitude:</label>
+            <input type="text" id="longitude" name="longitude" required>
+            <button type="submit">Find Stations</button>
+        </form>
+
+        <table id="stations-table">
+            <thead>
+                <tr>
+                    <th>Station Name</th>
+                    <th>Location</th>
+                    <th>Select</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+
+        <form id="booking-form">
+            <h2>Book a Slot</h2>
+            <input type="hidden" id="station-id" name="stationId">
+            <label for="slot">Select Slot:</label>
+            <select id="slot" name="slot">
+                <option value="08:00-09:00">08:00-09:00</option>
+                <option value="09:00-10:00">09:00-10:00</option>
+                <option value="10:00-11:00">10:00-11:00</option>
+                <option value="11:00-12:00">11:00-12:00</option>
+                <option value="12:00-1:00">12:00-1:00</option>
+                <option value="1:00-2:00">1:00-2:00</option>
+            </select>
+            <button type="submit">Book Slot</button>
+        </form>
+
+        <h2>All Bookings</h2>
+        <table id="bookings-table">
+            <thead>
+                <tr>
+                    <th>Station Name</th>
+                    <th>Slot Time</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Payment Pending</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.getElementById('location-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const latitude = document.getElementById('latitude').value;
+            const longitude = document.getElementById('longitude').value;
+            await fetchStations(latitude, longitude);
+        });
+
+        async function fetchStations(latitude, longitude) {
+            const response = await fetch(`/stations?longitude=${longitude}&latitude=${latitude}`);
+            const stations = await response.json();
+            const tableBody = document.querySelector('#stations-table tbody');
+            tableBody.innerHTML = '';
+
+            stations.forEach(station => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${station.name}</td>
+                    <td>${station.location.coordinates.join(', ')}</td>
+                    <td><button onclick="selectStation('${station._id}')">Select</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function selectStation(stationId) {
+            document.getElementById('station-id').value = stationId;
+            document.getElementById('booking-form').style.display = 'block';
+        }
+
+        document.getElementById('booking-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const stationId = document.getElementById('station-id').value;
+            const slot = document.getElementById('slot').value;
+            const response = await fetch(`/bookings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station: stationId, slot: slot })
+            });
+            console.log(response)
+
+            if (response.ok) {
+                alert('Slot booked successfully!');
+                const latitude = document.getElementById('latitude').value;
+                const longitude = document.getElementById('longitude').value;
+                await fetchStations(latitude, longitude);
+                await fetchBookings();
+            } else {
+                const message = await response.text();
+                alert(message);
+            }
+        });
+
+        document.getElementById('booking-form').style.display = 'none';
+
+        async function fetchBookings() {
+            const response = await fetch('/bookings/allbookings');
+            const bookings = await response.json();
+            console.log(bookings)
+            const tableBody = document.querySelector('#bookings-table tbody');
+            tableBody.innerHTML = '';
+
+            bookings.forEach(booking => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${booking.station.name}</td>
+                    <td>${booking.slot.time}</td>
+                    <td>${booking.startTime}</td>
+                    <td>${booking.endTime}</td>
+                    <td>${booking.paymentPending}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        window.onload = async () => {
+            await fetchBookings();
+        };
+    </script>
+</body>
+
+</html>
